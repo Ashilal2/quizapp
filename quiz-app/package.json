@@ -1,0 +1,25 @@
+{
+  "name": "quiz-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx node_modules/.bin/functions-framework --target=helloHttp --source=src/index.ts --port=8080",
+    "build": "tsc",
+    "start": "functions-framework --target=helloHttp --port=8080"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.0.7",
+    "@types/node-fetch": "^2.6.12",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^4.0.0",
+    "firebase-admin": "^11.10.1",
+    "node-fetch": "^2.6.0"
+  }
+}
