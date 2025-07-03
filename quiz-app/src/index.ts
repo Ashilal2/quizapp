@@ -8,7 +8,6 @@ import * as fs from 'fs';
 admin.initializeApp();
 const db = admin.firestore();
 
-const TOKEN = "eHXIc/RVYArUV5fqIR3z8Brpn9pwnZXdq97o+GykVZ79KSF5yHqcLRvK4fIem6MU7/+5U/GbGXh3Sm9VkEF8zprL5+zZ8HSNEIwmi+X8CYAH2wyDO/AxA8Vh+7D1/SMb0m1geOd0LjlV2sGLhAc+MQdB04t89/1O/w1cDnyilFU=";
 const LINE_PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 
 const HEADERS = {
