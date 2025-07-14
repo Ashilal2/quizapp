@@ -8,6 +8,7 @@ import * as fs from 'fs';
 admin.initializeApp();
 const db = admin.firestore();
 
+const TOKEN = process.env.LINE_ACCESS_TOKEN
 const LINE_PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 
 const HEADERS = {
@@ -120,7 +121,46 @@ http('helloHttp', async (req: Request, res: Response) => {
   // リッチメニュー
   if (event.type === "postback") {
     const postbackData = event.postback.data;
-    console.log("リッチメニューのデータ:", postbackData);
+    // console.log("リッチメニューのデータ:", postbackData);
+
+    let messages; // 返信するメッセージを格納する変数
+
+    if (postbackData === 'action=show_scholarship_carousel') {
+      // カーセルテンプレート
+      messages = [{
+        "type": "template",
+        "altText": "奨学金の一覧です。",
+        "template": {
+          "type": "carousel",
+          "columns": [
+            {
+              "thumbnailImageUrl": "/Users/ashilal/quizapp/quiz-app/image/scholarship-icon.jpg",
+              "title": "JASSO 奨学金",
+              "text": "返済不要の奨学金です。",
+              "actions": [
+                { "type": "uri", "label": "詳しく見る", "uri": "https://www.jasso.go.jp/shogakukin/about/kyufu/" },
+              ]
+            },
+            {
+              "thumbnailImageUrl": "/Users/ashilal/quizapp/quiz-app/image/scholarship-icon.jpg",
+              "title": "コカコーラ 貸与型奨学金",
+              "text": "卒業後に返済が必要な奨学金です。",
+              "actions": [
+                { "type": "uri", "label": "詳しく見る", "uri": "https://www.cocacola-zaidan.jp/edu-support/scholarship01.html" },
+              ]
+            }
+            // ...必要に応じてカラムを追加...
+          ]
+        }
+      }];
+    }else if (postbackData === 'document') {
+      // 「必要書類」ボタンが押された場合
+      messages = [{
+        type: 'text',
+        text: '必要書類のご案内です。1.住民票 2.所得証明書...'
+      }];
+    }
+
 
     try {
       await db.collection('richmenu').add({
