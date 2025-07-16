@@ -1,263 +1,132 @@
-import { Request, Response } from 'express';
-import { http } from '@google-cloud/functions-framework';
-import fetch from 'node-fetch';
-import * as admin from 'firebase-admin';
-import * as fs from 'fs';
+import { Request, Response } from "express";
+import { http } from "@google-cloud/functions-framework";
+import fetch from "node-fetch";
+import * as admin from "firebase-admin";
+import * as fs from "fs";
 
 // Firebaseの初期化
 admin.initializeApp();
 const db = admin.firestore();
 
-const TOKEN = process.env.LINE_ACCESS_TOKEN
+const TOKEN = process.env.LINE_ACCESS_TOKEN;
 const LINE_PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
+const LINE_REPLY_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 
 const HEADERS = {
   "Content-Type": "application/json; charset=UTF-8",
-  "Authorization": "Bearer " + TOKEN
+  Authorization: "Bearer " + TOKEN,
 };
 
-// リッチメニュー作成用エンドポイント
-http('createRichMenuHttp', async (req: Request, res: Response) => {
-  const body = {
-    size: { width: 1200, height: 810 },
-    selected: true,
-    name: "scholarship_menu",
-    chatBarText: "メニューを開く",
-    areas: [
-      {
-        bounds: { x: 0, y: 0, width: 400, height: 405 },
-        action: { type: 'postback', data: 'select_scholarship' }
-      },
-      {
-        bounds: { x: 400, y: 0, width: 400, height: 405 },
-        action: { type: 'postback', data: 'document' }
-      },
-      {
-        bounds: { x: 800, y: 0, width: 400, height: 405 },
-        action: { type: 'postback', data: 'progress' }
-      },
-      {
-        bounds: { x: 0, y: 405, width: 400, height: 405 },
-        action: { type: 'postback', data: 'user_info' }
-      },
-      {
-        bounds: { x: 400, y: 405, width: 400, height: 405 },
-        action: { type: 'postback', data: 'pause' }
-      },
-      {
-        bounds: { x: 800, y: 405, width: 400, height: 405 },
-        action: { type: 'postback', data: 'submit' }
-      }
-    ]
-  };
-
-  try {
-    const response = await fetch("https://api.line.me/v2/bot/richmenu", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-    const result = await response.json();
-    console.log("リッチメニュー作成:", result);
-    res.send(`Rich Menu ID: ${result.richMenuId}`);
-    console.log(`rich menu ID:${result.richMenuId}`);
-  } catch (err) {
-    console.error("作成失敗:", err);
-    res.status(500).send("リッチメニュー作成に失敗");
-  }
-});
-
-// 画像アップロード
-http('uploadRichMenuImageHttp', async (req: Request, res: Response) => {
-  const richMenuId = req.query.richMenuId as string;
-  const imagePath = './images/richmenu.png';
-
-  try {
-    const response = await fetch(`https://api.line.me/v2/bot/richmenu/${richMenuId}/content`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TOKEN}`,
-        'Content-Type': 'image/png',
-      },
-      body: fs.createReadStream(imagePath) as any, // node-fetch v2系ならanyでOK
-    });
-
-    if (!response.ok) throw new Error(await response.text());
-
-    console.log("画像アップロード完了");
-    res.send("画像アップロード完了");
-  } catch (err) {
-    console.error("アップロード失敗:", err);
-    res.status(500).send("画像アップロード失敗");
-  }
-});
-
-
 // LINE Webhook
-http('helloHttp', async (req: Request, res: Response) => {
-  const event = req.body.events[0];
-  const replyToken = event.replyToken;
-
-  console.log(event);
-
-  // Firestore にメッセージ保存
+http("helloHttp", async (req: Request, res: Response) => {
   try {
-    const userMessage = event.message?.text;
-    if (userMessage) {
-      console.log("ユーザーメッセージ:", userMessage);
-      await db.collection('user').add({
-        text: userMessage,
-        timestamp: new Date()
+    const event = req.body.events[0];
+
+    const replyToken = event.replyToken;
+    console.log("Received event:", event);
+
+    // Firestoreへのイベント保存を先に行う
+    // 返信処理をブロックしないように非同期で実行
+    db.collection("events")
+      .add({
+        ...event,
+        processedAt: new Date(),
+      })
+      .catch((err) => {
+        console.error("Firestore保存エラー:", err);
       });
-      console.log("Firestore への保存完了");
-    }
-  } catch (error) {
-    console.error("Firestore保存エラー:", error);
-  }
 
-  // リッチメニュー
-  if (event.type === "postback") {
-    const postbackData = event.postback.data;
-    // console.log("リッチメニューのデータ:", postbackData);
+    // テキストメッセージイベントの処理
+    if (event.type === "message" && event.message.type === "text") {
+      const userMessage = event.message.text;
+      let messages;
 
-    let messages; // 返信するメッセージを格納する変数
-
-    if (postbackData === 'action=show_scholarship_carousel') {
-      // カーセルテンプレート
-      messages = [{
-        "type": "template",
-        "altText": "奨学金の一覧です。",
-        "template": {
-          "type": "carousel",
-          "columns": [
-            {
-              "thumbnailImageUrl": "/Users/ashilal/quizapp/quiz-app/image/scholarship-icon.jpg",
-              "title": "JASSO 奨学金",
-              "text": "返済不要の奨学金です。",
-              "actions": [
-                { "type": "uri", "label": "詳しく見る", "uri": "https://www.jasso.go.jp/shogakukin/about/kyufu/" },
-              ]
+      if (userMessage.includes("奨学金")) {
+        messages = [
+          {
+            type: "template",
+            altText: "奨学金の一覧です。",
+            template: {
+              type: "carousel",
+              columns: [
+                {
+                  thumbnailImageUrl: "https://i.imgur.com/abc123.jpg",
+                  imageBackgroundColor: "#FFFFFF",
+                  title: "JASSO 奨学金",
+                  text: "返済不要の奨学金です。",
+                  actions: [
+                    {
+                      type: "uri",
+                      label: "詳しく見る",
+                      uri: "https://www.jasso.go.jp/shogakukin/about/kyufu/",
+                    },
+                  ],
+                },
+                {
+                  thumbnailImageUrl: "https://i.imgur.com/abc123.jpg",
+                  title: "コカコーラ奨学金",
+                  text: "貸与型の奨学金です。",
+                  actions: [
+                    {
+                      type: "uri",
+                      label: "詳しく見る",
+                      uri: "https://www.cocacola-zaidan.jp/edu-support/scholarship01.html",
+                    },
+                  ],
+                },
+              ],
             },
-            {
-              "thumbnailImageUrl": "/Users/ashilal/quizapp/quiz-app/image/scholarship-icon.jpg",
-              "title": "コカコーラ 貸与型奨学金",
-              "text": "卒業後に返済が必要な奨学金です。",
-              "actions": [
-                { "type": "uri", "label": "詳しく見る", "uri": "https://www.cocacola-zaidan.jp/edu-support/scholarship01.html" },
-              ]
-            }
-            // ...必要に応じてカラムを追加...
-          ]
-        }
-      }];
-    }else if (postbackData === 'document') {
-      // 「必要書類」ボタンが押された場合
-      messages = [{
-        type: 'text',
-        text: '必要書類のご案内です。1.住民票 2.所得証明書...'
-      }];
-    }
-
-
-    try {
-      await db.collection('richmenu').add({
-        data: postbackData,
-        timestamp: new Date()
-      });
-      console.log("Firestore → richmenu に保存しました");
-    } catch (error) {
-      console.error("Firestore保存エラー（richmenu）:", error);
-    }
-
-    const postData = {
-      replyToken,
-      messages: [{
-        "type": "template",
-        "altText": "This is a buttons template",
-        "template": {
-          "type": "buttons",
-          "imageAspectRatio": "rectangle",
-          "imageSize": "cover",
-          "imageBackgroundColor": "#FFFFFF",
-          "title": "Menu",
-          "text": "Please select",
-          "defaultAction": {
-            "type": "uri",
-            "label": "View detail",
-            "uri": "http://example.com/page/123"
           },
-          "actions": [
-            {
-              "type": "postback",
-              "label": "Buy",
-              "data": "action=buy&itemid=123"
-            },
-            {
-              "type": "postback",
-              "label": "Add to cart",
-              "data": "action=add&itemid=123"
-            },
-            {
-              "type": "uri",
-              "label": "View detail",
-              "uri": "http://example.com/page/123"
-            }
-          ]
-        }
-      }]
-    };
+        ];
+      } else {
+        // その他のメッセージ
+        messages = [
+          {
+            type: "text",
+            text: `「${userMessage}」ですね。`,
+          },
+        ];
+      }
 
-    try {
-      const response = await fetch(LINE_PUSH_ENDPOINT, {
+      // LINEに送信
+      const postData = { replyToken: event.replyToken, messages };
+      await fetch(LINE_REPLY_ENDPOINT, {
         method: "POST",
         headers: HEADERS,
-        body: JSON.stringify(postData)
+        body: JSON.stringify(postData),
       });
-      console.log("LINE応答（postback）:", await response.text());
-    } catch (error) {
-      console.error("LINE返信エラー（postback）:", error);
+
+      return res.status(200).send("Message processed.");
     }
 
-    return res.status(200).send("Postback処理完了");
-  }
+    // ポストバックイベントの処理
+    else if (event.type === "postback") {
+      const postbackData = event.postback.data;
+      const messages = [
+        {
+          type: "text",
+          text: `ポストバックデータ「${postbackData}」を受信しました。この機能は現在準備中です。`,
+        },
+      ];
 
-  // 通常のメッセージ
-  if (event.type === "message" && event.message.type === "text") {
-    const userMessage = event.message.text;
-    console.log("ユーザーメッセージ:", userMessage);
-
-    try {
-      await db.collection('user').add({
-        text: userMessage,
-        timestamp: new Date()
-      });
-      console.log("Firestore → user に保存しました");
-    } catch (error) {
-      console.error("Firestore保存エラー（user）:", error);
-    }
-
-    const postData = {
-      replyToken,
-      messages: [{
-        type: "text",
-        text: `「${userMessage}」を保存しました。`
-      }]
-    };
-
-    try {
-      const response = await fetch(LINE_PUSH_ENDPOINT, {
+      // LINEに応答を送信
+      const postData = { replyToken, messages };
+      await fetch(LINE_REPLY_ENDPOINT, {
         method: "POST",
         headers: HEADERS,
-        body: JSON.stringify(postData)
+        body: JSON.stringify(postData),
       });
-      console.log("LINE応答（テキスト）:", await response.text());
-    } catch (error) {
-      console.error("LINE返信エラー（テキスト）:", error);
+
+      return res.status(200).send("Postback processed.");
     }
 
-    return res.status(200).send("メッセージ処理完了");
+    // 対応していないイベントタイプの場合
+    console.log(`Unsupported event type: ${event.type}`);
+    return res.status(200).send("OK");
+  } catch (error) {
+    console.error("エラーが発生しました:", error);
+    // エラーが発生してもLINEプラットフォームには200 OKを返すのが一般的
+    // 500を返すとリトライが繰り返される可能性があるため
+    return res.status(200).send("Error processing request.");
   }
 });
