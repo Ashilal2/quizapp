@@ -1,263 +1,187 @@
-import { Request, Response } from 'express';
-import { http } from '@google-cloud/functions-framework';
-import fetch from 'node-fetch';
-import * as admin from 'firebase-admin';
-import * as fs from 'fs';
+import { Request, Response } from "express";
+import { http } from "@google-cloud/functions-framework";
+import fetch from "node-fetch";
+import * as admin from "firebase-admin";
 
-// Firebaseの初期化
 admin.initializeApp();
 const db = admin.firestore();
 
-const TOKEN = process.env.LINE_ACCESS_TOKEN
-const LINE_PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
+const TOKEN = process.env.LINE_ACCESS_TOKEN!;
+const LINE_REPLY_ENDPOINT = "https://api.line.me/v2/bot/message/reply";
 
 const HEADERS = {
   "Content-Type": "application/json; charset=UTF-8",
-  "Authorization": "Bearer " + TOKEN
+  Authorization: `Bearer ${TOKEN}`,
 };
 
-// リッチメニュー作成用エンドポイント
-http('createRichMenuHttp', async (req: Request, res: Response) => {
-  const body = {
-    size: { width: 1200, height: 810 },
-    selected: true,
-    name: "scholarship_menu",
-    chatBarText: "メニューを開く",
-    areas: [
-      {
-        bounds: { x: 0, y: 0, width: 400, height: 405 },
-        action: { type: 'postback', data: 'select_scholarship' }
-      },
-      {
-        bounds: { x: 400, y: 0, width: 400, height: 405 },
-        action: { type: 'postback', data: 'document' }
-      },
-      {
-        bounds: { x: 800, y: 0, width: 400, height: 405 },
-        action: { type: 'postback', data: 'progress' }
-      },
-      {
-        bounds: { x: 0, y: 405, width: 400, height: 405 },
-        action: { type: 'postback', data: 'user_info' }
-      },
-      {
-        bounds: { x: 400, y: 405, width: 400, height: 405 },
-        action: { type: 'postback', data: 'pause' }
-      },
-      {
-        bounds: { x: 800, y: 405, width: 400, height: 405 },
-        action: { type: 'postback', data: 'submit' }
+// メイン関数
+http("helloHttp", async (req: Request, res: Response) => {
+  try {
+    const event = req.body.events[0];
+    if (!event || !event.replyToken) {
+      return res.status(200).send("No valid event.");
+    }
+
+    const replyToken = event.replyToken;
+    const userMessage = event.message?.text ?? "";
+
+    // Firestore保存（非同期）
+    db.collection("events")
+      .add({ ...event, processedAt: new Date() })
+      .catch((err) => console.error("Firestore保存エラー:", err));
+
+    // メッセージイベントの処理
+    if (event.type === "message" && event.message.type === "text") {
+      let messages;
+
+      if (userMessage.includes("奨学金")) {
+        messages = await handleScholarshipMenuFromFirestore();
+      } else if (userMessage.includes("必要書類")) {
+        messages = handleRequiredDocuments();
+      } else {
+        messages = handleDefaultReply(userMessage);
       }
-    ]
-  };
 
-  try {
-    const response = await fetch("https://api.line.me/v2/bot/richmenu", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-    const result = await response.json();
-    console.log("リッチメニュー作成:", result);
-    res.send(`Rich Menu ID: ${result.richMenuId}`);
-    console.log(`rich menu ID:${result.richMenuId}`);
-  } catch (err) {
-    console.error("作成失敗:", err);
-    res.status(500).send("リッチメニュー作成に失敗");
-  }
-});
-
-// 画像アップロード
-http('uploadRichMenuImageHttp', async (req: Request, res: Response) => {
-  const richMenuId = req.query.richMenuId as string;
-  const imagePath = './images/richmenu.png';
-
-  try {
-    const response = await fetch(`https://api.line.me/v2/bot/richmenu/${richMenuId}/content`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TOKEN}`,
-        'Content-Type': 'image/png',
-      },
-      body: fs.createReadStream(imagePath) as any, // node-fetch v2系ならanyでOK
-    });
-
-    if (!response.ok) throw new Error(await response.text());
-
-    console.log("画像アップロード完了");
-    res.send("画像アップロード完了");
-  } catch (err) {
-    console.error("アップロード失敗:", err);
-    res.status(500).send("画像アップロード失敗");
-  }
-});
-
-
-// LINE Webhook
-http('helloHttp', async (req: Request, res: Response) => {
-  const event = req.body.events[0];
-  const replyToken = event.replyToken;
-
-  console.log(event);
-
-  // Firestore にメッセージ保存
-  try {
-    const userMessage = event.message?.text;
-    if (userMessage) {
-      console.log("ユーザーメッセージ:", userMessage);
-      await db.collection('user').add({
-        text: userMessage,
-        timestamp: new Date()
-      });
-      console.log("Firestore への保存完了");
+      await sendLineReply(replyToken, messages);
+      return res.status(200).send("Message processed.");
     }
+
+    // postbackイベントの処理
+    if (event.type === "postback") {
+      const data = event.postback.data;
+      const params = new URLSearchParams(data);
+      const action = params.get("action");
+      const scholarshipId = params.get("scholarshipId");
+      const userId = event.source?.userId;
+
+      if (action === "startApply" && scholarshipId && userId) {
+        await startApplicationFlow(replyToken, userId, scholarshipId);
+        return res.status(200).send("Postback handled.");
+      }
+    }
+
+    console.log(`Unsupported event type: ${event.type}`);
+    return res.status(200).send("OK");
   } catch (error) {
-    console.error("Firestore保存エラー:", error);
-  }
-
-  // リッチメニュー
-  if (event.type === "postback") {
-    const postbackData = event.postback.data;
-    // console.log("リッチメニューのデータ:", postbackData);
-
-    let messages; // 返信するメッセージを格納する変数
-
-    if (postbackData === 'action=show_scholarship_carousel') {
-      // カーセルテンプレート
-      messages = [{
-        "type": "template",
-        "altText": "奨学金の一覧です。",
-        "template": {
-          "type": "carousel",
-          "columns": [
-            {
-              "thumbnailImageUrl": "/Users/ashilal/quizapp/quiz-app/image/scholarship-icon.jpg",
-              "title": "JASSO 奨学金",
-              "text": "返済不要の奨学金です。",
-              "actions": [
-                { "type": "uri", "label": "詳しく見る", "uri": "https://www.jasso.go.jp/shogakukin/about/kyufu/" },
-              ]
-            },
-            {
-              "thumbnailImageUrl": "/Users/ashilal/quizapp/quiz-app/image/scholarship-icon.jpg",
-              "title": "コカコーラ 貸与型奨学金",
-              "text": "卒業後に返済が必要な奨学金です。",
-              "actions": [
-                { "type": "uri", "label": "詳しく見る", "uri": "https://www.cocacola-zaidan.jp/edu-support/scholarship01.html" },
-              ]
-            }
-            // ...必要に応じてカラムを追加...
-          ]
-        }
-      }];
-    }else if (postbackData === 'document') {
-      // 「必要書類」ボタンが押された場合
-      messages = [{
-        type: 'text',
-        text: '必要書類のご案内です。1.住民票 2.所得証明書...'
-      }];
-    }
-
-
-    try {
-      await db.collection('richmenu').add({
-        data: postbackData,
-        timestamp: new Date()
-      });
-      console.log("Firestore → richmenu に保存しました");
-    } catch (error) {
-      console.error("Firestore保存エラー（richmenu）:", error);
-    }
-
-    const postData = {
-      replyToken,
-      messages: [{
-        "type": "template",
-        "altText": "This is a buttons template",
-        "template": {
-          "type": "buttons",
-          "imageAspectRatio": "rectangle",
-          "imageSize": "cover",
-          "imageBackgroundColor": "#FFFFFF",
-          "title": "Menu",
-          "text": "Please select",
-          "defaultAction": {
-            "type": "uri",
-            "label": "View detail",
-            "uri": "http://example.com/page/123"
-          },
-          "actions": [
-            {
-              "type": "postback",
-              "label": "Buy",
-              "data": "action=buy&itemid=123"
-            },
-            {
-              "type": "postback",
-              "label": "Add to cart",
-              "data": "action=add&itemid=123"
-            },
-            {
-              "type": "uri",
-              "label": "View detail",
-              "uri": "http://example.com/page/123"
-            }
-          ]
-        }
-      }]
-    };
-
-    try {
-      const response = await fetch(LINE_PUSH_ENDPOINT, {
-        method: "POST",
-        headers: HEADERS,
-        body: JSON.stringify(postData)
-      });
-      console.log("LINE応答（postback）:", await response.text());
-    } catch (error) {
-      console.error("LINE返信エラー（postback）:", error);
-    }
-
-    return res.status(200).send("Postback処理完了");
-  }
-
-  // 通常のメッセージ
-  if (event.type === "message" && event.message.type === "text") {
-    const userMessage = event.message.text;
-    console.log("ユーザーメッセージ:", userMessage);
-
-    try {
-      await db.collection('user').add({
-        text: userMessage,
-        timestamp: new Date()
-      });
-      console.log("Firestore → user に保存しました");
-    } catch (error) {
-      console.error("Firestore保存エラー（user）:", error);
-    }
-
-    const postData = {
-      replyToken,
-      messages: [{
-        type: "text",
-        text: `「${userMessage}」を保存しました。`
-      }]
-    };
-
-    try {
-      const response = await fetch(LINE_PUSH_ENDPOINT, {
-        method: "POST",
-        headers: HEADERS,
-        body: JSON.stringify(postData)
-      });
-      console.log("LINE応答（テキスト）:", await response.text());
-    } catch (error) {
-      console.error("LINE返信エラー（テキスト）:", error);
-    }
-
-    return res.status(200).send("メッセージ処理完了");
+    console.error("エラー:", error);
+    return res.status(200).send("Error processing request.");
   }
 });
+
+async function handleScholarshipMenuFromFirestore(): Promise<any[]> {
+  const citiesRef = db.collection("scholarships");
+  const snapshot = await citiesRef.where("type", "array-contains", "2").get();
+
+  if (snapshot.empty) {
+    return [
+      {
+        type: "text",
+        text: "現在、表示できる奨学金はありません。",
+      },
+    ];
+  }
+
+  console.log(snapshot.docs);
+
+  const columns = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    console.log(data);
+    return {
+      thumbnailImageUrl: data.imageUrl || "https://i.imgur.com/abc123.jpg",
+      title: data.name,
+      text: data.description.slice(0, 60),
+      actions: [
+        {
+          type: "uri",
+          label: "詳しく見る",
+          uri: "https://example.com/scholarship/" + data.id,
+        },
+        {
+          type: "postback",
+          label: "申請を始める",
+          data: `action=startApply&scholarshipId=${data.id}`,
+        },
+      ],
+    };
+  });
+
+  return [
+    {
+      type: "template",
+      altText: "奨学金の一覧です。",
+      template: {
+        type: "carousel",
+        columns: columns.slice(0, 5), // LINEのカルーセルは最大5件まで
+      },
+    },
+  ];
+}
+
+function handleRequiredDocuments() {
+  return [
+    {
+      type: "text",
+      text: "必要書類のご案内です。\n1. 住民票\n2. 所得証明書\n3. 成績証明書\n...",
+    },
+  ];
+}
+
+function handleDefaultReply(userMessage: string) {
+  return [
+    {
+      type: "text",
+      text: `「${userMessage}」ですね。`,
+    },
+  ];
+}
+
+async function sendLineReply(replyToken: string, messages: any[]) {
+  const postData = { replyToken, messages };
+  const response = await fetch(LINE_REPLY_ENDPOINT, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify(postData),
+  });
+
+  const text = await response.text();
+  console.log("LINE API Response:", response.status, text);
+}
+
+async function startApplicationFlow(
+  replyToken: string,
+  userId: string,
+  scholarshipId: string
+) {
+  // 奨学金に紐づく質問を取得
+  const questionsSnapshot = await db
+    .collection("questions")
+    .where("scholarshipId", "==", scholarshipId)
+    .get();
+
+  if (questionsSnapshot.empty) {
+    return await sendLineReply(replyToken, [
+      { type: "text", text: "この奨学金には質問が登録されていません。" },
+    ]);
+  }
+
+  const firstQuestion = questionsSnapshot.docs[0].data();
+  const firstQuestionId = questionsSnapshot.docs[0].id;
+
+  // Firestoreに進行状況を保存
+  await db.collection("state").doc(`${userId}_${scholarshipId}`).set({
+    userId,
+    scholarshipId,
+    currentQuestionId: firstQuestionId,
+    progress: 0,
+    isSuspend: false,
+    date: new Date(),
+  });
+
+  // LINEに質問を送信
+  await sendLineReply(replyToken, [
+    {
+      type: "text",
+      text: firstQuestion.content,
+    },
+  ]);
+}
