@@ -25,7 +25,7 @@ http("helloHttp", async (req: Request, res: Response) => {
     const replyToken = event.replyToken;
     const userMessage = event.message?.text ?? "";
 
-    // Firestore保存（非同期）
+    // Firestore保存
     db.collection("events")
       .add({ ...event, processedAt: new Date() })
       .catch((err) => console.error("Firestore保存エラー:", err));
@@ -52,7 +52,10 @@ http("helloHttp", async (req: Request, res: Response) => {
       const params = new URLSearchParams(data);
       const action = params.get("action");
       const scholarshipId = params.get("scholarshipId");
+
       const userId = event.source?.userId;
+
+      console.log("scholarshipId" + scholarshipId);
 
       if (action === "startApply" && scholarshipId && userId) {
         await startApplicationFlow(replyToken, userId, scholarshipId);
@@ -72,6 +75,8 @@ async function handleScholarshipMenuFromFirestore(): Promise<any[]> {
   const citiesRef = db.collection("scholarships");
   const snapshot = await citiesRef.where("type", "array-contains", "2").get();
 
+  console.log(snapshot.docs);
+
   if (snapshot.empty) {
     return [
       {
@@ -80,9 +85,6 @@ async function handleScholarshipMenuFromFirestore(): Promise<any[]> {
       },
     ];
   }
-
-  console.log(snapshot.docs);
-
   const columns = snapshot.docs.map((doc) => {
     const data = doc.data();
     console.log(data);
@@ -94,12 +96,12 @@ async function handleScholarshipMenuFromFirestore(): Promise<any[]> {
         {
           type: "uri",
           label: "詳しく見る",
-          uri: "https://example.com/scholarship/" + data.id,
+          uri: "https://example.com/scholarship/" + doc.id,
         },
         {
           type: "postback",
           label: "申請を始める",
-          data: `action=startApply&scholarshipId=${data.id}`,
+          data: `action=startApply&scholarshipId=${doc.id}`,
         },
       ],
     };
@@ -154,8 +156,9 @@ async function startApplicationFlow(
 ) {
   // 奨学金に紐づく質問を取得
   const questionsSnapshot = await db
-    .collection("questions")
-    .where("scholarshipId", "==", scholarshipId)
+    .collection("scholarships")
+    .doc(scholarshipId)
+    .collection("question")
     .get();
 
   if (questionsSnapshot.empty) {
@@ -184,4 +187,61 @@ async function startApplicationFlow(
       text: firstQuestion.content,
     },
   ]);
+}
+
+async function sendQuestion(
+  replyToken: string,
+  scholarshipId: string,
+  questionDoc: admin.firestore.DocumentSnapshot
+) {
+  const question = questionDoc.data();
+  let message;
+  switch (question.type) {
+    case "text":
+      message = { type: "text", text: question.content };
+      break;
+
+    case "single":
+      message = {
+        type: "template",
+        altText: question.content,
+        template: {
+          type: "buttons",
+          text: question.content,
+          actions: question.options.map((option: string) => ({
+            type: "postback",
+            label: option,
+            // 回答アクション
+            data:
+              `action=answer&scholarshipId=${scholarshipId}` +
+              `&questionId=${questionDoc.id}&value=${encodeURIComponent(
+                option
+              )}`,
+          })),
+        },
+      };
+      break;
+
+    case "multiple": //　複数選択
+      message = {
+        type: "template",
+        altText: question.content,
+        quickReply: {
+          items: question.options.map((option: string) => ({
+            type: "action",
+            action: {
+              type: "postback",
+              label: option,
+              data:
+                `action=answer&scholarshipId=${scholarshipId}` +
+                `&questionId=${questionDoc.id}&value=${encodeURIComponent(
+                  option
+                )}`,
+            },
+          })),
+        },
+      };
+      break;
+  }
+  await sendLineReply(replyToken, [message]);
 }
