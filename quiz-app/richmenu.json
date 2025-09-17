@@ -1,0 +1,53 @@
+{
+  "size": {
+    "width": 2500,
+    "height": 1686
+  },
+  "selected": true,
+  "name": "リッチメニューの改善",
+  "chatBarText": "Tap to open",
+  "areas": [
+    {
+      "bounds": { "x": 0, "y": 0, "width": 834, "height": 842 },
+      "action": {
+        "type": "message",
+        "text": "[初学金を選ぶ]"
+      }
+    },
+    {
+      "bounds": { "x": 834, "y": 0, "width": 834, "height": 842 },
+      "action": {
+        "type": "message",
+        "text": "[必要書類]"
+      }
+    },
+    {
+      "bounds": { "x": 1668, "y": 0, "width": 832, "height": 842 },
+      "action": {
+        "type": "message",
+        "text": "[進捗を見る]"
+      }
+    },
+    {
+      "bounds": { "x": 0, "y": 842, "width": 834, "height": 844 },
+      "action": {
+        "type": "message",
+        "text": "[申請者情報]"
+      }
+    },
+    {
+      "bounds": { "x": 834, "y": 842, "width": 834, "height": 844 },
+      "action": {
+        "type": "message",
+        "text": "[中断する]"
+      }
+    },
+    {
+      "bounds": { "x": 1668, "y": 842, "width": 832, "height": 844 },
+      "action": {
+        "type": "message",
+        "text": "[提出する]"
+      }
+    }
+  ]
+}

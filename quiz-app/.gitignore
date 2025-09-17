@@ -101,3 +101,9 @@ node_modules
 
 coverage
 .env
+
+# Firebase service account key
+secrets/
+
+# Environment variables
+.env.dev
