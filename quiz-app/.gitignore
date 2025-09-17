@@ -107,3 +107,5 @@ secrets/
 
 # Environment variables
 .env.dev
+
+dist/
