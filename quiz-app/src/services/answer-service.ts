@@ -45,19 +45,6 @@ export async function handleAnswerFlow(
   }
 }
 
-// async function completeApplicationFlow(
-//   replyToken: string,
-//   userId: string,
-//   scholarshipId: string
-// ) {
-//   await sendLineReply(replyToken, [
-//     { type: "text", text: "お疲れ様でした。全ての質問が完了しました！" },
-//   ]);
-//   await db.collection("state").doc(`${userId}_${scholarshipId}`).update({
-//     isSuspend: true,
-//   });
-// }
-
 // 申請完了時の処理を行う関数
 export async function completeApplicationFlow(
   replyToken: string,

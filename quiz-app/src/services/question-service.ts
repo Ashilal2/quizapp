@@ -5,44 +5,25 @@ import { db } from "../firebase";
 import { sendLineReply } from "./line-service";
 import { completeApplicationFlow } from "./answer-service";
 
-// export async function startApplicationFlow(
-//   replyToken: string,
-//   userId: string,
-//   scholarshipId: string
-// ) {
-//   const questionsSnapshot = await db
-//     .collection("scholarships")
-//     .doc(scholarshipId)
-//     .collection("question")
-//     .get();
-
-//   if (questionsSnapshot.empty) {
-//     return await sendLineReply(replyToken, [
-//       { type: "text", text: "この奨学金には質問が登録されていません。" },
-//     ]);
-//   }
-
-//   const firstQuestionDoc = questionsSnapshot.docs[0];
-//   const firstQuestionData = firstQuestionDoc.data();
-
-//   await db.collection("state").doc(`${userId}_${scholarshipId}`).set({
-//     userId,
-//     scholarshipId,
-//     currentQuestionId: firstQuestionDoc.id,
-//     answers: {},
-//     isSuspend: false,
-//     date: new Date(),
-//     expectedAnswerType: firstQuestionData.type,
-//   });
-
-//   await sendQuestion(replyToken, scholarshipId, firstQuestionDoc);
-// }
-
 export async function startApplicationFlow(
   replyToken: string,
   userId: string,
   scholarshipId: string
 ) {
+  //奨学金の情報を取得
+  const scholarshipDoc = await db
+    .collection("scholarships")
+    .doc(scholarshipId)
+    .get();
+  const scholarshipData = scholarshipDoc.data();
+
+  // 申請開始メッセージを送る
+  if (scholarshipData?.name) {
+    await sendLineReply(replyToken, [
+      { type: "text", text: `${scholarshipData.name}の申請を始めます。` },
+    ]);
+  }
+
   // 奨学金に紐づく質問を取得
   const questionsSnapshot = await db
     .collection("scholarships")
@@ -70,75 +51,8 @@ export async function startApplicationFlow(
     expectedAnswerType: firstQuestionData.type,
   });
 
-  // LINEに質問を送信
-  // await sendLineReply(replyToken, [
-  //   {
-  //     type: "text",
-  //     text: firstQuestion.content,
-  //   },
-  // ]);
   await sendQuestion(replyToken, scholarshipId, firstQuestionDoc);
 }
-
-// export async function sendQuestion(
-//   replyToken: string,
-//   scholarshipId: string,
-//   questionDoc: admin.firestore.DocumentSnapshot
-// ) {
-//   const question = questionDoc.data();
-//   if (!question) return;
-
-//   const questionId = questionDoc.id;
-//   let message;
-
-//   switch (question.type) {
-//     case 1:
-//       message = { type: "text", text: question.content };
-//       break;
-//     case 2:
-//     case 4:
-//       message = {
-//         type: "template",
-//         altText: question.content,
-//         template: {
-//           type: "buttons",
-//           text: question.content,
-//           actions: question.select.map((option: string) => ({
-//             type: "postback",
-//             label: option,
-//             data: `action=answer&scholarshipId=${scholarshipId}&questionId=${questionId}&value=${encodeURIComponent(
-//               option
-//             )}`,
-//           })),
-//         },
-//       };
-//       break;
-//     case 3:
-//       message = {
-//         type: "text",
-//         text: question.content,
-//         quickReply: {
-//           items: question.select.map((option: string) => ({
-//             type: "action",
-//             action: {
-//               type: "postback",
-//               label: option,
-//               displayText: `${option}を選択しました`,
-//               data: `action=answer&scholarshipId=${scholarshipId}&questionId=${questionId}&value=${encodeURIComponent(
-//                 option
-//               )}`,
-//             },
-//           })),
-//         },
-//       };
-//       break;
-//     default:
-//       message = { type: "text", text: "エラー：不明な質問タイプです。" };
-//       break;
-//   }
-
-//   await sendLineReply(replyToken, [message]);
-// }
 
 export async function sendQuestion(
   replyToken: string,
