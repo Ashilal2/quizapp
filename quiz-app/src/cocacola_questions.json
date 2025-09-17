@@ -1,0 +1,251 @@
+[
+  {
+    "scholarshipId": "cocacola",
+    "questions": [
+      {
+        "qid": "1",
+        "content": "氏名（漢字）",
+        "isRequire": true,
+        "type": 1,
+        "format": "text"
+      },
+      {
+        "qid": "2",
+        "content": "氏名（カナ）",
+        "isRequire": true,
+        "type": 1,
+        "format": "kana"
+      },
+      {
+        "qid": "3",
+        "content": "生年月日",
+        "isRequire": true,
+        "type": 1,
+        "format": "date"
+      },
+      {
+        "qid": "4",
+        "content": "性別を選択してください",
+        "isRequire": false,
+        "type": 4,
+        "select": ["男性", "女性", "回答しない", "その他"]
+      },
+      {
+        "qid": "5",
+        "content": "国籍",
+        "isRequire": true,
+        "type": 1
+      },
+      {
+        "qid": "6",
+        "content": "在留資格（外国籍の方）",
+        "isRequire": false,
+        "type": 4,
+        "select": [
+          "留学",
+          "家族滞在",
+          "永住者",
+          "定住者",
+          "技術・人文知識・国際業務",
+          "その他"
+        ]
+      },
+      {
+        "qid": "7",
+        "content": "現住所",
+        "isRequire": true,
+        "type": 1
+      },
+      {
+        "qid": "8",
+        "content": "電話番号",
+        "isRequire": true,
+        "type": 1,
+        "format": "phone"
+      },
+      {
+        "qid": "9",
+        "content": "メールアドレス",
+        "isRequire": true,
+        "type": 1,
+        "format": "email"
+      },
+      {
+        "qid": "10",
+        "content": "学校種別を選択してください",
+        "isRequire": true,
+        "type": 4,
+        "select": ["高校", "短大", "大学", "大学院", "専門学校", "その他"]
+      },
+      {
+        "qid": "11",
+        "content": "学校名",
+        "isRequire": true,
+        "type": 1
+      },
+      {
+        "qid": "12",
+        "content": "在学状況を選択してください",
+        "isRequire": true,
+        "type": 4,
+        "select": ["在学", "入学予定", "休学中"]
+      },
+      {
+        "qid": "13",
+        "content": "入学（予定）日",
+        "isRequire": false,
+        "type": 1,
+        "format": "date"
+      },
+      {
+        "qid": "14",
+        "content": "卒業（予定）日",
+        "isRequire": false,
+        "type": 1,
+        "format": "date"
+      },
+      {
+        "qid": "15",
+        "content": "成績（GPA/平均評定）",
+        "isRequire": false,
+        "type": 1,
+        "format": "number"
+      },
+      {
+        "qid": "16",
+        "content": "世帯区分を選択してください",
+        "isRequire": true,
+        "type": 4,
+        "select": ["ひとり親", "共働き", "片働き", "祖父母同居", "その他"]
+      },
+      {
+        "qid": "17",
+        "content": "兄弟姉妹の人数",
+        "isRequire": false,
+        "type": 1,
+        "format": "number"
+      },
+      {
+        "qid": "18",
+        "content": "保護者との続柄",
+        "isRequire": true,
+        "type": 4,
+        "select": ["父", "母", "祖父母", "後見人", "自己（扶養なし）", "その他"]
+      },
+      {
+        "qid": "19",
+        "content": "住居形態",
+        "isRequire": false,
+        "type": 4,
+        "select": ["自宅", "下宿/寮", "一人暮らし", "その他"]
+      },
+      {
+        "qid": "20",
+        "content": "現在の勤務形態",
+        "isRequire": false,
+        "type": 4,
+        "select": ["していない", "週1–2日", "週3–4日", "週5日以上"]
+      },
+      {
+        "qid": "21",
+        "content": "現在受給中の奨学金（当てはまるもの全て）",
+        "isRequire": false,
+        "type": 3,
+        "select": [
+          "日本学生支援機構（貸与）",
+          "日本学生支援機構（給付）",
+          "自治体",
+          "民間",
+          "なし"
+        ]
+      },
+      {
+        "qid": "22",
+        "content": "他奨学金との併給はありますか？",
+        "isRequire": false,
+        "type": 2,
+        "select": ["はい", "いいえ"]
+      },
+      {
+        "qid": "23",
+        "content": "志望理由（300字程度）",
+        "isRequire": true,
+        "type": 1
+      },
+      {
+        "qid": "24",
+        "content": "家計急変/特記事項（任意）",
+        "isRequire": false,
+        "type": 1
+      },
+      {
+        "qid": "25",
+        "content": "個人情報の取扱いおよび募集要項に同意しますか？",
+        "isRequire": true,
+        "type": 2,
+        "select": ["同意する", "同意しない"]
+      },
+      {
+        "qid": "26",
+        "content": "課外活動・ボランティアの実績（当てはまるもの全て）",
+        "isRequire": false,
+        "type": 3,
+        "select": [
+          "学生会",
+          "ボランティア",
+          "研究会",
+          "部活動",
+          "地域活動",
+          "介護/家事手伝い",
+          "その他"
+        ]
+      },
+      {
+        "qid": "27",
+        "content": "活動時間（直近1年の累計）",
+        "isRequire": false,
+        "type": 4,
+        "select": ["50時間未満", "50–100時間", "100–200時間", "200時間以上"]
+      },
+      {
+        "qid": "28",
+        "content": "リーダーシップを発揮した経験",
+        "isRequire": false,
+        "type": 1
+      },
+      {
+        "qid": "29",
+        "content": "推薦者の氏名",
+        "isRequire": false,
+        "type": 1
+      },
+      {
+        "qid": "30",
+        "content": "推薦者のメールアドレス",
+        "isRequire": false,
+        "type": 1,
+        "format": "email"
+      },
+      {
+        "qid": "31",
+        "content": "成果物・活動証明のURL（任意）",
+        "isRequire": false,
+        "type": 1,
+        "format": "url"
+      },
+      {
+        "qid": "32",
+        "content": "広報素材への協力可否（氏名・写真等）",
+        "isRequire": false,
+        "type": 2,
+        "select": ["可", "否"]
+      },
+      {
+        "qid": "33",
+        "content": "備考（任意）",
+        "isRequire": false,
+        "type": 1
+      }
+    ]
+  }
+]
