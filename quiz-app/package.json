@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^4.0.0",
+    "@types/pdfkit": "^0.17.3",
     "dotenv": "^17.2.1",
-    "firebase-admin": "^11.10.1",
-    "node-fetch": "^2.6.0"
+    "firebase-admin": "^13.5.0",
+    "node-fetch": "^2.6.0",
+    "pdfkit": "^0.17.2"
   }
 }

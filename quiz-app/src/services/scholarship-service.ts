@@ -19,6 +19,7 @@ export async function handleScholarshipMenuFromFirestore(): Promise<any[]> {
   const columns = snapshot.docs.map((doc) => {
     const data = doc.data();
     console.log(data);
+
     return {
       thumbnailImageUrl: data.imageUrl || "https://i.imgur.com/abc123.jpg",
       title: data.name,

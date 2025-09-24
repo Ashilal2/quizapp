@@ -3,7 +3,10 @@ import { http } from "@google-cloud/functions-framework";
 import { db } from "./firebase";
 import { sendLineReply } from "./services/line-service";
 import { handleAnswerFlow } from "./services/answer-service";
-import { startApplicationFlow } from "./services/question-service";
+import {
+  sendQuestion,
+  startApplicationFlow,
+} from "./services/question-service";
 import {
   handleScholarshipMenuFromFirestore,
   handleRequiredDocuments,
@@ -46,7 +49,6 @@ http("helloHttp", async (req: Request, res: Response) => {
         }
         await sendLineReply(replyToken, messages);
         return res.status(200).send("Command processed.");
-        // 早期リターン []がついたものは質問の回答として受け取らない
       }
 
       // 質問への回答か判断
@@ -108,6 +110,51 @@ http("helloHttp", async (req: Request, res: Response) => {
             scholarshipId,
             questionId,
             value
+          );
+        }
+      } else if (action === "selectanswer") {
+        // 複数選択できる回答の場合の処理
+        const questionId = params.get("questionId");
+        const value = params.get("value");
+
+        if (questionId && value) {
+          const stateRef = db
+            .collection("state")
+            .doc(`${userId}_${scholarshipId}`);
+          const stateDoc = await stateRef.get();
+          const stateData = stateDoc.data();
+
+          // 既存の回答を配列で取り出す（なかったら空配列）
+          const currentAnswers: string[] =
+            stateData?.answers?.[questionId] || [];
+
+          if (!currentAnswers.includes(value)) {
+            await stateRef.update({
+              [`answers.${questionId}`]: [...currentAnswers, value],
+            });
+          }
+
+          // 「これ以上なし」がくるまで同じ質問を繰り返す
+          const questionDoc = await db
+            .collection("scholarships")
+            .doc(scholarshipId)
+            .collection("question")
+            .doc(questionId)
+            .get();
+
+          await sendQuestion(replyToken, scholarshipId, questionDoc, []);
+        }
+      } else if (action === "selectanserend") {
+        // 複数選択を終了して次の質問に進む
+        const questionId = params.get("questionId");
+
+        if (questionId) {
+          await handleAnswerFlow(
+            replyToken,
+            userId!,
+            scholarshipId,
+            questionId,
+            "END" // ダミー値、実際の回答は selectanswer 側で保存済み
           );
         }
       }

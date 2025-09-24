@@ -10,6 +10,28 @@ export async function startApplicationFlow(
   userId: string,
   scholarshipId: string
 ) {
+  //奨学金の情報を取得
+  const scholarshipDoc = await db
+    .collection("scholarships")
+    .doc(scholarshipId)
+    .get();
+  const scholarshipData = scholarshipDoc.data();
+
+  const replyMessages = [];
+
+  // 申請開始メッセージを送る
+  if (scholarshipData?.name) {
+    replyMessages.push({
+      type: "text",
+      text: `${scholarshipData.name}の申請を始めます。`,
+    });
+    // await sendLineReply(replyToken,
+    //   [
+    //   { type: "text", text: `${scholarshipData.name}の申請を始めます。` },
+    //   {type: "text", text: }
+    // ]);
+  }
+
   // 奨学金に紐づく質問を取得
   const questionsSnapshot = await db
     .collection("scholarships")
@@ -37,13 +59,19 @@ export async function startApplicationFlow(
     expectedAnswerType: firstQuestionData.type,
   });
 
-  await sendQuestion(replyToken, scholarshipId, firstQuestionDoc);
+  await sendQuestion(
+    replyToken,
+    scholarshipId,
+    firstQuestionDoc,
+    replyMessages
+  );
 }
 
 export async function sendQuestion(
   replyToken: string,
   scholarshipId: string,
-  questionDoc: admin.firestore.DocumentSnapshot
+  questionDoc: admin.firestore.DocumentSnapshot,
+  replyMessages: any
 ) {
   const question = questionDoc.data();
   if (!question) return;
@@ -58,14 +86,14 @@ export async function sendQuestion(
       break;
 
     case 2: // 2: 2択 (はい/いいえ など)
-    case 4: // 4: 複数選択肢から1つ
       message = {
         type: "template",
         altText: question.content,
         template: {
           type: "buttons",
           text: question.content,
-          actions: question.select.map((option: string) => ({
+          actions: question.select.slice(0, 4).map((option: string) => ({
+            // actionsは最大4つまで
             type: "postback",
             label: option,
             data: `action=answer&scholarshipId=${scholarshipId}&questionId=${questionId}&value=${encodeURIComponent(
@@ -76,13 +104,13 @@ export async function sendQuestion(
       };
       break;
 
-    case 3: // 3: 複数選択
-      // 複数選択はQuick Replyで表現するのが一般的
+    case 4: // 複数の中から1つ、4択以上の場合
       message = {
         type: "text",
         text: question.content,
         quickReply: {
-          items: question.select.map((option: string) => ({
+          items: question.select.slice(0, 13).map((option: string) => ({
+            // Quick Replyは最大13個まで
             type: "action",
             action: {
               type: "postback",
@@ -97,11 +125,51 @@ export async function sendQuestion(
       };
       break;
 
+    case 3: // 3: 複数選択
+      // 複数選択はQuick Replyで表現するのが一般的
+      const items = [
+        {
+          type: "action",
+          action: {
+            type: "postback",
+            label: "これ以上なし",
+            displayText: "回答を終了します",
+            data: `action=selectanserend&scholarshipId=${scholarshipId}&questionId=${questionId}`,
+          },
+        },
+      ];
+
+      items.push(
+        ...question.select.slice(0, 12).map((option: string) => ({
+          // map の戻り値（配列）をそのまま push して、itemsの中身が二重配列になるのを防ぐ
+          // Quick Replyは最大12個まで
+          type: "action",
+          action: {
+            type: "postback",
+            label: option,
+            displayText: `${option}を選択しました`,
+            data: `action=selectanswer&scholarshipId=${scholarshipId}&questionId=${questionId}&value=${encodeURIComponent(
+              option
+            )}`,
+          },
+        }))
+      );
+
+      message = {
+        type: "text",
+        text: question.content,
+        quickReply: {
+          items: items, // 配列が返せる
+        },
+      };
+      break;
+
     default: // 不明なタイプ
       message = { type: "text", text: "エラー：不明な質問タイプです。" };
       break;
   }
-  await sendLineReply(replyToken, [message]);
+  replyMessages.push(message);
+  await sendLineReply(replyToken, replyMessages);
 }
 
 export async function handleAnswerFlow(
