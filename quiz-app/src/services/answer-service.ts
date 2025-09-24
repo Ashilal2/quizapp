@@ -35,7 +35,7 @@ export async function handleAnswerFlow(
     .get();
 
   if (nextQuestionDoc.exists) {
-    await sendQuestion(replyToken, scholarshipId, nextQuestionDoc);
+    await sendQuestion(replyToken, scholarshipId, nextQuestionDoc, []);
     await stateRef.update({
       currentQuestionId: nextQuestionId,
       expectedAnswerType: nextQuestionDoc.data()?.type,
