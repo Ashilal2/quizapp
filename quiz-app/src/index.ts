@@ -12,6 +12,7 @@ import {
   handleRequiredDocuments,
   handleDefaultReply,
 } from "./services/scholarship-service";
+import { generateScholarshipPDFAndUpload } from "./services/pdf-service";
 
 http("helloHttp", async (req: Request, res: Response) => {
   try {
@@ -44,6 +45,9 @@ http("helloHttp", async (req: Request, res: Response) => {
           messages = await handleScholarshipMenuFromFirestore();
         } else if (command.includes("必要書類")) {
           messages = handleRequiredDocuments();
+        } else if (command.includes("提出する")) {
+          await generateScholarshipPDFAndUpload(userId, "cocacola");
+          return res.status(200).send("PDF generation started.");
         } else {
           messages = handleDefaultReply(command); // 括弧を外してオウム返し
         }

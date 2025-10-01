@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx node_modules/.bin/functions-framework --target=helloHttp --source=src/index.ts --port=8080",
-    "build": "tsc",
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "copyfiles -u 1 fonts/**/* dist/",
     "start": "functions-framework --target=helloHttp --port=8080"
   },
   "keywords": [],
