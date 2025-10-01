@@ -22,7 +22,7 @@ export async function sendLineReply(replyToken: string, messages: any[]) {
   console.log("LINE API Response:", response.status, text);
 }
 
-// プッシュ（userIdを使う）
+// replymessageは時間が少ないからプッシュ
 export async function sendLinePush(to: string, messages: any[]) {
   const postData = { to, messages };
   const response = await fetch(LINE_PUSH_ENDPOINT, {
